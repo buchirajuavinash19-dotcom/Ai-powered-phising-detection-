@@ -70,6 +70,6 @@ export default function Scanner() {
         Demo only. This does not verify a URL against live threat databases.
       </small>
     </section>
-  );
-        }
+    );
+      }
        
