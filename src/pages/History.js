@@ -147,5 +147,6 @@ export default function History() {
         )}
       </div>
     </div>
-  );
-            }
+    );
+}
+            
