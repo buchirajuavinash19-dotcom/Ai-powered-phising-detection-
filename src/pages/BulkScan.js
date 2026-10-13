@@ -180,5 +180,6 @@ export default function BulkScan() {
         </div>
       )}
     </div>
-  );
-  }
+    );
+}
+  
