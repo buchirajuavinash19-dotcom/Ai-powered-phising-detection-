@@ -37,7 +37,7 @@ const BADGE = {
 };
 
 export default function Dashboard() {
-  const [scanHistory, setScanHistory] = useState([]);
+  const [, setScanHistory] = useState([]);
   const [scanStats, setScanStats] = useState({
     total_scans: 0,
     safe_scans: 0,
