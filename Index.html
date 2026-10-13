@@ -1,0 +1,95 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Powered Phishing Detection System</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="navbar">
+    <div class="brand">🛡️ PhishGuard AI</div>
+    <nav>
+      <a href="#scanner">URL Scanner</a>
+      <a href="#bulk">Bulk Scan</a>
+      <a href="#history">History</a>
+    </nav>
+  </header>
+
+  <main class="container">
+    <section class="hero">
+      <span class="tag">AI-POWERED SECURITY</span>
+      <h1>AI Powered Phishing<br>Detection System</h1>
+      <p>Analyze suspicious URLs and identify potential phishing threats.</p>
+    </section>
+
+    <section class="stats">
+      <div class="stat-card">
+        <span>Total Scans</span>
+        <h2 id="totalScans">0</h2>
+      </div>
+      <div class="stat-card">
+        <span>Safe URLs</span>
+        <h2 id="safeCount">0</h2>
+      </div>
+      <div class="stat-card">
+        <span>Threats Detected</span>
+        <h2 id="threatCount">0</h2>
+      </div>
+    </section>
+
+    <section class="panel" id="scanner">
+      <h2>🔍 URL Security Scanner</h2>
+      <p>Enter a website URL to run a demo analysis.</p>
+
+      <form id="scanForm">
+        <input id="urlInput" type="text"
+          placeholder="https://example.com" required>
+        <button type="submit" id="scanButton">Scan URL</button>
+      </form>
+
+      <div class="tools">
+        <label class="upload-button">
+          📷 Scan QR Image
+          <input type="file" id="qrInput" accept="image/*" hidden>
+        </label>
+        <button class="secondary" id="reportButton">
+          Download Report
+        </button>
+      </div>
+
+      <div id="result" class="result hidden" aria-live="polite"></div>
+      <p class="notice">
+        Demo mode: results are based on basic URL checks, not a
+        verified AI or threat-intelligence scan.
+      </p>
+    </section>
+
+    <section class="panel" id="bulk">
+      <h2>📋 Bulk URL Scanner</h2>
+      <p>Enter one URL per line.</p>
+      <textarea id="bulkInput" rows="5"
+        placeholder="https://example.com&#10;https://another-example.com"></textarea>
+      <button id="bulkButton">Analyze URLs</button>
+      <div id="bulkResults"></div>
+    </section>
+
+    <section class="panel" id="history">
+      <div class="history-heading">
+        <h2>🕒 Scan History</h2>
+        <button class="secondary" id="clearHistory">Clear History</button>
+      </div>
+      <div id="historyList">
+        <p class="empty">No scans yet. Start by scanning a URL.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>PhishGuard AI · Academic Project · Frontend Demo</p>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
