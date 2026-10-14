@@ -8,7 +8,7 @@ let lastResult = null;
 let counts = { total: 0, safe: 0, threat: 0 };
 
 const API_BASE = "https://phishguard-backend-17id.onrender.com/api";
-
+console.log("PhishGuard backend script loaded");
 async function saveScanToBackend(item) {
   const response = await fetch(`${API_BASE}/scan`, {
     method: "POST",
@@ -174,7 +174,7 @@ function renderHistory() {
 
 scanForm.addEventListener("submit", async event => {
   event.preventDefault();
-
+alert("Scanner JavaScript is running");
   let item;
 
   try {
