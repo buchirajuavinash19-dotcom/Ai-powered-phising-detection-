@@ -1,185 +1,323 @@
 import React, { useState, useEffect } from 'react';
-import { 
-    BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, 
-    PieChart, Pie, Cell, Legend 
+import {
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell, Legend
 } from 'recharts';
 
-const weeklyData = [
-  { day: 'Mon', scans: 42, phishing: 8 },
-  { day: 'Tue', scans: 57, phishing: 14 },
-  { day: 'Wed', scans: 38, phishing: 6 },
-  { day: 'Thu', scans: 71, phishing: 22 },
-  { day: 'Fri', scans: 65, phishing: 18 },
-  { day: 'Sat', scans: 29, phishing: 4 },
-  { day: 'Sun', scans: 33, phishing: 7 },
-];
+const API_URL = 'https://phishguard-backend-17id.onrender.com';
 
-const threatTypes = [
-  { name: 'URL Phishing', value: 45, color: '#ef4444' },
-  { name: 'Email Scam', value: 30, color: '#f59e0b' },
-  { name: 'Brand Spoof', value: 15, color: '#6366f1' },
-  { name: 'Credential Harvest', value: 10, color: '#ec4899' },
-];
-
-const recentThreats = [
-  { url: 'paypal-secure-verify.xyz/login', risk: 'CRITICAL', time: '2 min ago' },
-  { url: 'apple-id-locked.tk/verify', risk: 'CRITICAL', time: '8 min ago' },
-  { url: 'amazon-prize-winner.ml', risk: 'HIGH', time: '15 min ago' },
-  { url: 'support.google.net-update.com', risk: 'HIGH', time: '23 min ago' },
-  { url: 'bankofamerica.account.xyz', risk: 'CRITICAL', time: '41 min ago' },
-];
-
-const BADGE = {
-  CRITICAL: { bg: 'rgba(239,68,68,0.15)', color: '#f87171' },
-  HIGH: { bg: 'rgba(245,158,11,0.15)', color: '#fbbf24' },
-  MEDIUM: { bg: 'rgba(234,179,8,0.15)', color: '#facc15' },
-  LOW: { bg: 'rgba(16,185,129,0.15)', color: '#34d399' },
+const COLORS = {
+  Safe: '#10b981',
+  Suspicious: '#f59e0b',
+  Phishing: '#ef4444',
+  Other: '#6366f1',
 };
 
+function getCategory(result) {
+  const value = String(result || '').toLowerCase();
+
+  if (value.includes('phishing') || value.includes('malicious') ||
+      value.includes('critical') || value.includes('high')) {
+    return 'Phishing';
+  }
+
+  if (value.includes('suspicious') || value.includes('medium')) {
+    return 'Suspicious';
+  }
+
+  if (value.includes('safe') || value.includes('low')) {
+    return 'Safe';
+  }
+
+  return 'Other';
+}
+
+function formatTime(value) {
+  if (!value) return 'Time unavailable';
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Time unavailable';
+
+  const minutes = Math.max(0, Math.floor((Date.now() - date.getTime()) / 60000));
+
+  if (minutes < 1) return 'Just now';
+  if (minutes < 60) return `${minutes} min ago`;
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} hr ago`;
+
+  return `${Math.floor(hours / 24)} days ago`;
+}
+
 export default function Dashboard() {
-  const [, setScanHistory] = useState([]);
-  const [scanStats, setScanStats] = useState({
-    total_scans: 0,
-    safe_scans: 0,
-    phishing_scans: 0,
-    threat_rate: 0,
-  });
+  const [scanHistory, setScanHistory] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    fetch('/api/history')
-      .then(res => res.json())
-      .then(data => setScanHistory(data))
-      .catch(err => console.error('Error:', err));
+    let active = true;
 
-    fetch('/api/stats')
-      .then(res => res.json())
-      .then(stats => {
-        if (!stats.error) setScanStats(stats);
-      })
-      .catch(err => console.error('Stats fetch error:', err));
+    async function loadHistory() {
+      try {
+        const response = await fetch(`${API_URL}/api/history`);
+
+        if (!response.ok) {
+          throw new Error('Unable to fetch scan history.');
+        }
+
+        const data = await response.json();
+        const history = Array.isArray(data)
+          ? data
+          : Array.isArray(data.history)
+            ? data.history
+            : [];
+
+        if (active) {
+          setScanHistory(history);
+          setError('');
+        }
+      } catch (err) {
+        if (active) setError('Could not load dashboard data. Please try again.');
+        console.error('Dashboard history error:', err);
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+
+    loadHistory();
+
+    return () => {
+      active = false;
+    };
   }, []);
+
+  const totalScans = scanHistory.length;
+
+  const safeScans = scanHistory.filter(
+    item => getCategory(item.result) === 'Safe'
+  ).length;
+
+  const phishingScans = scanHistory.filter(
+    item => getCategory(item.result) === 'Phishing'
+  ).length;
+
+  const suspiciousScans = scanHistory.filter(
+    item => getCategory(item.result) === 'Suspicious'
+  ).length;
+
+  const threatCount = phishingScans + suspiciousScans;
+  const threatRate = totalScans
+    ? Math.round((threatCount / totalScans) * 100)
+    : 0;
+
+  const stats = [
+    { label: 'Total Scans', value: totalScans, sub: 'Recorded URL scans' },
+    { label: 'Safe Scans', value: safeScans, sub: 'Classified as safe' },
+    { label: 'Phishing Scans', value: phishingScans, sub: 'Classified as threats' },
+    { label: 'Threat Rate', value: `${threatRate}%`, sub: 'Phishing and suspicious results' },
+  ];
+
+  const weeklyData = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(
+    (day, index) => {
+      const scans = scanHistory.filter(item => {
+        const date = new Date(item.checked_at);
+        return !Number.isNaN(date.getTime()) &&
+          (date.getDay() + 6) % 7 === index;
+      });
+
+      return {
+        day,
+        scans: scans.length,
+        phishing: scans.filter(
+          item => getCategory(item.result) === 'Phishing'
+        ).length,
+      };
+    }
+  );
+
+  const threatTypes = [
+    { name: 'Safe', value: safeScans, color: COLORS.Safe },
+    { name: 'Suspicious', value: suspiciousScans, color: COLORS.Suspicious },
+    { name: 'Phishing', value: phishingScans, color: COLORS.Phishing },
+    {
+      name: 'Other',
+      value: scanHistory.filter(
+        item => getCategory(item.result) === 'Other'
+      ).length,
+      color: COLORS.Other,
+    },
+  ].filter(item => item.value > 0);
+
+  const recentThreats = scanHistory
+    .filter(item => getCategory(item.result) !== 'Safe')
+    .slice()
+    .sort((a, b) => new Date(b.checked_at) - new Date(a.checked_at))
+    .slice(0, 5);
+
+  const badgeStyle = {
+    Phishing: { bg: 'rgba(239,68,68,0.15)', color: '#f87171' },
+    Suspicious: { bg: 'rgba(245,158,11,0.15)', color: '#fbbf24' },
+    Other: { bg: 'rgba(99,102,241,0.15)', color: '#a5b4fc' },
+  };
 
   return (
     <div>
-      <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 4 }}>Threat Dashboard</h1>
+      <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 4 }}>
+        Threat Dashboard
+      </h1>
+
       <p style={{ color: '#94a3b8', marginBottom: 28, fontSize: 14 }}>
-        Real-time phishing detection overview
+        Scan statistics from your backend history
       </p>
 
-      {/* Stats */}
+      {error && (
+        <p role="alert" style={{ color: '#f87171' }}>{error}</p>
+      )}
+
+      {loading && <p style={{ color: '#94a3b8' }}>Loading scan data...</p>}
+
       <div className="stats-grid">
-        {[
-          { label: 'Total Scans', value: scanStats.total_scans, sub: 'Total scans executed' },
-          { label: 'Safe Scans', value: scanStats.safe_scans, sub: 'Verified safe results' },
-          { label: 'Phishing Scans', value: scanStats.phishing_scans, sub: 'Potential threats flagged' },
-          { label: 'Threat Rate', value: `${scanStats.threat_rate}%`, sub: 'Phishing detection rate' },
-        ].map((s) => (
-          <div className="stat-card" key={s.label}>
-            <div className="stat-label">{s.label}</div>
-            <div className="stat-value">{s.value}</div>
-            <div className="stat-sub">{s.sub}</div>
+        {stats.map(item => (
+          <div className="stat-card" key={item.label}>
+            <div className="stat-label">{item.label}</div>
+            <div className="stat-value">{loading ? '...' : item.value}</div>
+            <div className="stat-sub">{item.sub}</div>
           </div>
         ))}
       </div>
 
-      {/* Charts Row */}
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16, marginBottom: 24 }}>
-        {/* Bar Chart */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+        gap: 16,
+        marginBottom: 24
+      }}>
         <div className="card">
           <div className="card-title">Weekly Scan Activity</div>
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={weeklyData} barGap={4}>
-              <XAxis dataKey="day" tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={false} tickLine={false} />
-              <Tooltip
-                contentStyle={{ background: '#1e2130', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8 }}
-                labelStyle={{ color: '#f1f5f9' }}
-              />
-              <Bar dataKey="scans" fill="#6366f1" radius={[4,4,0,0]} name="Total Scans" />
-              <Bar dataKey="phishing" fill="#ef4444" radius={[4,4,0,0]} name="Phishing" />
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={weeklyData}>
+              <XAxis dataKey="day" />
+              <YAxis allowDecimals={false} />
+              <Tooltip />
+              <Bar dataKey="scans" fill="#6366f1" name="Total Scans" />
+              <Bar dataKey="phishing" fill="#ef4444" name="Phishing" />
             </BarChart>
           </ResponsiveContainer>
         </div>
-        
 
-        {/* Pie Chart */}
         <div className="card">
-          <div className="card-title">Threat Types</div>
-          <ResponsiveContainer width="100%" height={200}>
-            <PieChart>
-              <Pie
-                data={threatTypes}
-                cx="50%"
-                cy="50%"
-                innerRadius={55}
-                outerRadius={80}
-                paddingAngle={3}
-                dataKey="value"
-              >
-                {threatTypes.map((entry, i) => (
-                  <Cell key={i} fill={entry.color} />
-                ))}
-              </Pie>
-              <Tooltip contentStyle={{ background: '#1e2130', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8 }} />
-              <Legend
-                iconType="circle"
-                iconSize={8}
-                formatter={(val) => <span style={{ color: '#94a3b8', fontSize: 12 }}>{val}</span>}
-              />
-            </PieChart>
-          </ResponsiveContainer>
+          <div className="card-title">Scan Result Breakdown</div>
+          {threatTypes.length > 0 ? (
+            <ResponsiveContainer width="100%" height={220}>
+              <PieChart>
+                <Pie
+                  data={threatTypes}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={45}
+                  outerRadius={75}
+                >
+                  {threatTypes.map(item => (
+                    <Cell key={item.name} fill={item.color} />
+                  ))}
+                </Pie>
+                <Tooltip />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          ) : (
+            <p style={{ color: '#94a3b8' }}>No scan data available yet.</p>
+          )}
         </div>
       </div>
 
       <div className="card">
-        <div className="card-title">AI Recommendation Box</div>
+        <div className="card-title">AI Security Recommendations</div>
         <div className="recommendation-box">
-          <div className="recommendation-item">Use HTTPS-only links and avoid unsafe login prompts.</div>
-          <div className="recommendation-item">Review sender domains carefully and do not trust urgent requests.</div>
-          <div className="recommendation-item">Cross-check suspicious URLs against Safe Browsing and VirusTotal.</div>
-          <div className="recommendation-item">Keep browser and security tools updated for the latest protections.</div>
+          <div className="recommendation-item">
+            Use HTTPS links and avoid unsafe login prompts.
+          </div>
+          <div className="recommendation-item">
+            Review sender domains carefully and avoid urgent requests from unknown sources.
+          </div>
+          <div className="recommendation-item">
+            Cross-check suspicious URLs using configured security services.
+          </div>
+          <div className="recommendation-item">
+            Keep your browser and security tools updated.
+          </div>
         </div>
       </div>
 
-      {/* Recent Threats */}
       <div className="card">
         <div className="card-title">Recent Threats Detected</div>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr>
-              {['URL / Sender', 'Risk Level', 'Time'].map((h) => (
-                <th key={h} style={{ textAlign: 'left', padding: '8px 0', fontSize: 12, color: '#64748b', fontWeight: 600, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {recentThreats.map((t, i) => (
-              <tr key={i}>
-                <td style={{ padding: '12px 0', fontSize: 13, color: '#cbd5e1', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                  🔗 {t.url}
-                </td>
-                <td style={{ padding: '12px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                  <span style={{
-                    background: BADGE[t.risk]?.bg,
-                    color: BADGE[t.risk]?.color,
-                    padding: '3px 10px',
-                    borderRadius: 20,
-                    fontSize: 11,
-                    fontWeight: 700,
-                  }}>
-                    {t.risk}
-                  </span>
-                </td>
-                <td style={{ padding: '12px 0', fontSize: 12, color: '#64748b', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                  {t.time}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+
+        {recentThreats.length === 0 ? (
+          <p style={{ color: '#94a3b8' }}>
+            No phishing or suspicious results in the recorded history.
+          </p>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  {['URL', 'Risk Level', 'Time'].map(heading => (
+                    <th key={heading} style={{
+                      textAlign: 'left',
+                      padding: '8px',
+                      color: '#94a3b8',
+                      fontSize: 12
+                    }}>
+                      {heading}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {recentThreats.map((item, index) => {
+                  const category = getCategory(item.result);
+                  const badge = badgeStyle[category] || badgeStyle.Other;
+
+                  return (
+                    <tr key={item.id || index}>
+                      <td style={{
+                        padding: 8,
+                        color: '#cbd5e1',
+                        overflowWrap: 'anywhere'
+                      }}>
+                        {item.url || 'Unknown URL'}
+                      </td>
+                      <td style={{ padding: 8 }}>
+                        <span style={{
+                          background: badge.bg,
+                          color: badge.color,
+                          padding: '4px 8px',
+                          borderRadius: 20,
+                          fontSize: 11,
+                          fontWeight: 700
+                        }}>
+                          {category.toUpperCase()}
+                        </span>
+                      </td>
+                      <td style={{
+                        padding: 8,
+                        color: '#94a3b8',
+                        fontSize: 12,
+                        whiteSpace: 'nowrap'
+                      }}>
+                        {formatTime(item.checked_at)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );
-  }
+          }
+              
