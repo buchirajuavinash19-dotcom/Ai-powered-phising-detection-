@@ -329,6 +329,6 @@ document.getElementById("qrInput").addEventListener("change", async event => {
 
   event.target.value = "";
 });
-
+loadBackendHistory();
 renderHistory();
     
