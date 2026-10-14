@@ -1,3 +1,4 @@
+
 const scanForm = document.getElementById("scanForm");
 const urlInput = document.getElementById("urlInput");
 const resultBox = document.getElementById("result");
@@ -8,13 +9,14 @@ let lastResult = null;
 let counts = { total: 0, safe: 0, threat: 0 };
 
 const API_BASE = "https://phishguard-backend-17id.onrender.com/api";
-console.log("PhishGuard backend script loaded");
+
+console.log("PhishGuard AI script loaded");
+
+// Save scan to backend database
 async function saveScanToBackend(item) {
   const response = await fetch(`${API_BASE}/scan`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       url: item.url,
       result: item.status
@@ -22,26 +24,33 @@ async function saveScanToBackend(item) {
   });
 
   if (!response.ok) {
-  const message = await response.text();
-  throw new Error(`Backend HTTP ${response.status}: ${message}`);
+    const message = await response.text();
+    throw new Error(`Backend HTTP ${response.status}: ${message}`);
   }
 
   return await response.json();
 }
 
+// Load saved scans from backend database
 async function loadBackendHistory() {
   try {
     const response = await fetch(`${API_BASE}/history`);
-    if (!response.ok) return;
+
+    if (!response.ok) {
+      throw new Error(`Backend HTTP ${response.status}`);
+    }
 
     const data = await response.json();
     console.log("Backend scan history:", data.history);
+
+    return data.history || [];
   } catch (error) {
     console.error("Backend history unavailable:", error);
+    return [];
   }
 }
 
-
+// Analyze a URL using basic heuristic checks
 function analyzeURL(value) {
   const raw = value.trim();
 
@@ -86,24 +95,19 @@ function analyzeURL(value) {
     reasons.push("Contains a keyword sometimes used in phishing");
   }
 
-  let status = "Safe";
-
-  if (reasons.length >= 2) {
-    status = "Suspicious";
-  } else if (reasons.length === 1) {
-    status = "Suspicious";
-  }
+  const status = reasons.length ? "Suspicious" : "Safe";
 
   return {
     url: raw,
     status,
-    reasons: reasons.length ? reasons : [
-      "No basic warning signs detected"
-    ],
+    reasons: reasons.length
+      ? reasons
+      : ["No basic warning signs detected"],
     time: new Date().toLocaleString()
   };
 }
 
+// Display scan result
 function showResult(item) {
   resultBox.className = "result";
 
@@ -116,7 +120,7 @@ function showResult(item) {
   }
 
   resultBox.innerHTML = `
-    <h3>Demo Analysis Result: ${item.status}</h3>
+    <h3>Demo Analysis Result: ${escapeHTML(item.status)}</h3>
     <p><strong>URL:</strong> ${escapeHTML(item.url)}</p>
     <p><strong>Time:</strong> ${escapeHTML(item.time)}</p>
     <p><strong>Observations:</strong></p>
@@ -125,10 +129,13 @@ function showResult(item) {
         `<li>${escapeHTML(reason)}</li>`
       ).join("")}
     </ul>
-    <p><small>This is a heuristic demo, not a verified security verdict.</small></p>
+    <p><small>
+      This is a heuristic demo, not a verified security verdict.
+    </small></p>
   `;
 }
 
+// Escape HTML to display user-provided values safely
 function escapeHTML(value) {
   return String(value).replace(/[&<>"']/g, char => ({
     "&": "&amp;",
@@ -139,23 +146,25 @@ function escapeHTML(value) {
   })[char]);
 }
 
-function saveResult(item) {
-  history.unshift(item);
-  counts.total++;
-
-  if (item.status === "Safe") {
-    counts.safe++;
-  } else {
-    counts.threat++;
-  }
+// Update scan counters
+function updateCounts() {
+  counts.total = history.length;
+  counts.safe = history.filter(item => item.status === "Safe").length;
+  counts.threat = history.filter(item => item.status !== "Safe").length;
 
   document.getElementById("totalScans").textContent = counts.total;
   document.getElementById("safeCount").textContent = counts.safe;
   document.getElementById("threatCount").textContent = counts.threat;
+}
 
+// Add a scan to the visible history
+function saveResult(item) {
+  history.unshift(item);
+  updateCounts();
   renderHistory();
 }
 
+// Render scan history
 function renderHistory() {
   if (!history.length) {
     historyList.innerHTML =
@@ -172,10 +181,10 @@ function renderHistory() {
   `).join("");
 }
 
-
+// Scan a single URL and save it to the backend
 scanForm.addEventListener("submit", async event => {
   event.preventDefault();
-alert("Scanner JavaScript is running");
+
   let item;
 
   try {
@@ -200,14 +209,15 @@ alert("Scanner JavaScript is running");
   } catch (error) {
     resultBox.insertAdjacentHTML(
       "beforeend",
-      "<p><small>Backend save failed. Check connection and try again.</small></p>"
+      "<p><small>Backend save failed. The result is only in this page's history.</small></p>"
     );
+
     console.error("Backend save error:", error);
   }
 });
 
-
-document.getElementById("bulkButton").addEventListener("click", () => {
+// Bulk URL scanning
+document.getElementById("bulkButton").addEventListener("click", async () => {
   const urls = document.getElementById("bulkInput").value
     .split(/\r?\n/)
     .map(url => url.trim())
@@ -222,7 +232,7 @@ document.getElementById("bulkButton").addEventListener("click", () => {
 
   output.innerHTML = "";
 
-  urls.forEach(value => {
+  for (const value of urls) {
     let item;
 
     try {
@@ -251,10 +261,19 @@ document.getElementById("bulkButton").addEventListener("click", () => {
     if (item.status !== "Invalid URL") {
       saveResult(item);
       lastResult = item;
+
+      try {
+        await saveScanToBackend(item);
+        status.textContent += " — Saved to backend";
+      } catch (error) {
+        status.textContent += " — Backend save failed";
+        console.error("Bulk scan save error:", error);
+      }
     }
-  });
+  }
 });
 
+// Download scan report as CSV
 document.getElementById("reportButton").addEventListener("click", () => {
   if (!lastResult) {
     alert("Please scan a URL before downloading the report.");
@@ -268,7 +287,7 @@ document.getElementById("reportButton").addEventListener("click", () => {
     ["Demo Result", lastResult.status],
     ["Time", lastResult.time],
     ["Observations", lastResult.reasons.join("; ")],
-    ["Disclaimer", "Frontend heuristic demo; not a verified security verdict"]
+    ["Disclaimer", "Heuristic demo; not a verified security verdict"]
   ];
 
   const csv = content.map(row =>
@@ -281,39 +300,46 @@ document.getElementById("reportButton").addEventListener("click", () => {
     type: "text/csv;charset=utf-8;"
   });
 
+  const objectURL = URL.createObjectURL(blob);
   const link = document.createElement("a");
-  link.href = URL.createObjectURL(blob);
+
+  link.href = objectURL;
   link.download = "phishing-scan-report.csv";
   link.click();
-  URL.revokeObjectURL(link.href);
+
+  setTimeout(() => URL.revokeObjectURL(objectURL), 1000);
 });
 
+// Clear visible page history only
 document.getElementById("clearHistory").addEventListener("click", () => {
   history = [];
-  counts = { total: 0, safe: 0, threat: 0 };
   lastResult = null;
 
-  document.getElementById("totalScans").textContent = "0";
-  document.getElementById("safeCount").textContent = "0";
-  document.getElementById("threatCount").textContent = "0";
-
+  counts = { total: 0, safe: 0, threat: 0 };
+  updateCounts();
   renderHistory();
 });
 
+// QR image scanning
 document.getElementById("qrInput").addEventListener("change", async event => {
   const file = event.target.files[0];
 
   if (!file) return;
 
   if (!("BarcodeDetector" in window)) {
-    alert("QR image reading is not supported in this browser. Use your existing QR scanner module.");
+    alert("QR image reading is not supported in this browser.");
     event.target.value = "";
     return;
   }
 
+  let bitmap;
+
   try {
-    const detector = new BarcodeDetector({ formats: ["qr_code"] });
-    const bitmap = await createImageBitmap(file);
+    const detector = new BarcodeDetector({
+      formats: ["qr_code"]
+    });
+
+    bitmap = await createImageBitmap(file);
     const codes = await detector.detect(bitmap);
 
     if (!codes.length) {
@@ -322,14 +348,31 @@ document.getElementById("qrInput").addEventListener("change", async event => {
       urlInput.value = codes[0].rawValue;
       alert("QR content loaded. Check the URL before scanning.");
     }
-
-    bitmap.close();
-  } catch {
+  } catch (error) {
     alert("Unable to read this QR image.");
+    console.error("QR scan error:", error);
+  } finally {
+    if (bitmap) bitmap.close();
+    event.target.value = "";
   }
-
-  event.target.value = "";
 });
-loadBackendHistory();
-renderHistory();
+
+// Initialize the app using saved backend history
+async function initializeApp() {
+  const backendHistory = await loadBackendHistory();
+
+  history = backendHistory.map(item => ({
+    url: item.url,
+    status: item.result,
+    time: item.checked_at
+      ? new Date(item.checked_at).toLocaleString()
+      : "Time unavailable",
+    reasons: ["Previously saved scan"]
+  }));
+
+  updateCounts();
+  renderHistory();
+}
+
+initializeApp();
     
