@@ -4,6 +4,7 @@ import Scanner from './pages/Scanner';
 import BulkScan from './pages/BulkScan';
 import History from './pages/History';
 import EmailScan from './EmailScan';
+import WhoisLookup from './WhoisLookup';
 import './App.css';
 
 function App() {
@@ -15,6 +16,7 @@ scanner: <Scanner />,
 bulk: <BulkScan />,
 history: <History />,
 email: <EmailScan />,
+whois: <WhoisLookup />,
 };
 
 const navigation = [
@@ -23,6 +25,7 @@ const navigation = [
 { id: 'email', icon: '📧', label: 'Email Scan' },
 { id: 'bulk', icon: '📦', label: 'Bulk Scan' },
 { id: 'history', icon: '📋', label: 'History' },
+{ id: 'whois', icon: '🌐', label: 'WHOIS Lookup' },
 ];
 
 return (
