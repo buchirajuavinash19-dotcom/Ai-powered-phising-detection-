@@ -22,7 +22,8 @@ async function saveScanToBackend(item) {
   });
 
   if (!response.ok) {
-    throw new Error("Unable to save scan to backend");
+  const message = await response.text();
+  throw new Error(`Backend HTTP ${response.status}: ${message}`);
   }
 
   return await response.json();
