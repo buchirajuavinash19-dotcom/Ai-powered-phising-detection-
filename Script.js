@@ -171,19 +171,40 @@ function renderHistory() {
   `).join("");
 }
 
-scanForm.addEventListener("submit", event => {
+
+scanForm.addEventListener("submit", async event => {
   event.preventDefault();
 
+  let item;
+
   try {
-    const item = analyzeURL(urlInput.value);
-    lastResult = item;
-    showResult(item);
-    saveResult(item);
+    item = analyzeURL(urlInput.value);
   } catch (error) {
     resultBox.className = "result suspicious";
     resultBox.textContent = error.message;
+    return;
+  }
+
+  lastResult = item;
+  showResult(item);
+  saveResult(item);
+
+  try {
+    await saveScanToBackend(item);
+
+    resultBox.insertAdjacentHTML(
+      "beforeend",
+      "<p><small>Scan saved to backend history.</small></p>"
+    );
+  } catch (error) {
+    resultBox.insertAdjacentHTML(
+      "beforeend",
+      "<p><small>Backend save failed. Check connection and try again.</small></p>"
+    );
+    console.error("Backend save error:", error);
   }
 });
+
 
 document.getElementById("bulkButton").addEventListener("click", () => {
   const urls = document.getElementById("bulkInput").value
