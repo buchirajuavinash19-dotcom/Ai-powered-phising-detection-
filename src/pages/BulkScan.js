@@ -77,10 +77,11 @@ export default function BulkScan() {
         throw new Error('Add at least one valid URL or email entry before scanning.');
       }
 
-      const response = await axios.post(
+      const { data } = await axios.post(
   'https://phishguard-backend-17id.onrender.com/api/scan/batch',
   payload
 );
+setResult(data);
       
     } catch (err) {
       const message = err.response?.data?.error || err.message || 'Bulk scan failed';
