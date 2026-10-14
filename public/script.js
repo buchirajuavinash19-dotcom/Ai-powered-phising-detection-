@@ -320,5 +320,32 @@ document.getElementById("qrInput").addEventListener("change", async event => {
   }
 });
 
-loadBackendHistory();
-renderHistory();
+
+async function initializeApp() {
+  const backendHistory = await loadBackendHistory();
+
+  history = backendHistory.map(item => ({
+    url: item.url,
+    status: item.result,
+    time: item.checked_at
+      ? new Date(item.checked_at).toLocaleString()
+      : "Time unavailable",
+    reasons: ["Previously saved scan"]
+  }));
+
+  counts.total = history.length;
+  counts.safe = history.filter(
+    item => item.status === "Safe"
+  ).length;
+
+  counts.threat = history.filter(
+    item => item.status !== "Safe"
+  ).length;
+
+  updateCounts();
+  renderHistory();
+}
+
+initializeApp();
+
+
