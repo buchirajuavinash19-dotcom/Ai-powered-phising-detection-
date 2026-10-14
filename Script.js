@@ -7,6 +7,40 @@ let history = [];
 let lastResult = null;
 let counts = { total: 0, safe: 0, threat: 0 };
 
+const API_BASE = "https://phishguard-backend-17id.onrender.com/api";
+
+async function saveScanToBackend(item) {
+  const response = await fetch(`${API_BASE}/scan`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      url: item.url,
+      result: item.status
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error("Unable to save scan to backend");
+  }
+
+  return await response.json();
+}
+
+async function loadBackendHistory() {
+  try {
+    const response = await fetch(`${API_BASE}/history`);
+    if (!response.ok) return;
+
+    const data = await response.json();
+    console.log("Backend scan history:", data.history);
+  } catch (error) {
+    console.error("Backend history unavailable:", error);
+  }
+}
+
+
 function analyzeURL(value) {
   const raw = value.trim();
 
